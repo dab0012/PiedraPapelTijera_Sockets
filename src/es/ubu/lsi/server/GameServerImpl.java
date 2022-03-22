@@ -6,85 +6,197 @@
  */
 package es.ubu.lsi.server;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.HashMap;
+
 import es.ubu.lsi.common.GameElement;
+import es.ubu.lsi.common.Serial;
+
+public class GameServerImpl implements GameServer {
 
 
-public class GameServerImpl implements GameServer{
-	
-	private final int PORT = 1500;
-	
-	class ServerThreadForClient implements Runnable{
+	//ATRIBUTOS
+	//------------------------
 
-		
-		/**
-		 * Como solo va a existir una sala, se hardcodea el id
-		 * @return el id de la sala
-		 */
-		public int getIdRoom(){
-			return 1;
-		}
-		
-		@Override
-		public void run() {
-			// TODO Auto-generated method stub
-			
-		}
-		
-	}
+	private final static int PORT = 1500;
+	private final static int MAX_PLAYERS = 2;
+	private int numPlayers;
+	private HashMap<Integer, ServerThreadForClient> clientThreads;
+	private int currentPlayerId = 0;
 
+
+	//CONSTRUCTOR
+	//------------------------
 
 	/**
-	 * Constructor
-	 * @param port
+	 * 
 	 */
 	public GameServerImpl() {
 		super();
+		clientThreads = new HashMap<Integer, ServerThreadForClient>();
 	}
 
-	public static void main(String[] args) {
-		// TODO Auto-generated method stub
 
+	//METODOS DE CLASE
+	//------------------------
+
+	/**
+	 * 
+	 * @return
+	 */
+	public int getNumPlayers() {
+		return this.numPlayers;
 	}
 
 	/**
-	 *  Implementa el bucle con el servidor de sockets (ServerSocket), esperando y aceptado 
-	 *  peticiones. Ante cada petición entrante y aceptada, se instancia un nuevo ServerThreadForClient 
-	 *  y se arranca el hilo correspondiente para que cada cliente tenga su hilo independiente asociado 
-	 *  en el servidor (con su socket, flujo de entrada y flujo de salida). 
-	 *  Es importante ir guardando un registro de los hilos creados para poder posteriormente realizar 
-	 *  el push de los mensajes y un apagado correcto.
+	 * 
 	 */
 	@Override
 	public void startup() {
-		// TODO Auto-generated method stub
-		
+
+		//Se inicializan 1 ServerThreadForClient para cada jugador
+		//El id del jugador se asigna en este momento, y es secuencial
+		while (numPlayers < MAX_PLAYERS){
+			clientThreads.put(++currentPlayerId, new ServerThreadForClient());
+		}
 	}
 
 	/**
-	 *  Cierra los flujos de entrada/salida del servidor y el socket correspondiente a cada cliente.
+	 * Cierra los flujos de entrada/salida del servidor y el socket correspondiente
+	 * a cada cliente.
 	 */
 	@Override
 	public void shutdown() {
-		// TODO Auto-generated method stub
-		
+		//Finalizamos cada ServerThreadForClient almacenado
+		clientThreads.forEach((key, value) -> value.finalize());
 	}
 
 	/**
-	 *  Envía el resultado a los clientes de una determinada sala (flujo de salida).
+	 * Envía el resultado a los clientes de una determinada sala (flujo de salida).
 	 */
 	@Override
 	public void broadcastRoom(GameElement element) {
-		// TODO Auto-generated method stub
-		
+		//A cada cliente se le envia el GameElement serializado
+		clientThreads.forEach((id, thread) -> thread.getOut().println(Serial.serialize(element)));
 	}
 
 	/**
-	 *  Elimina un cliente de la lista
+	 * Elimina un cliente de la lista
 	 */
 	@Override
 	public void remove(int id) {
-		// TODO Auto-generated method stub
-		
+		clientThreads.remove(id);
+	}
+
+
+
+	public static void main(String[] args) {
+
+	}
+
+	/////////////////
+
+	class ServerThreadForClient implements Runnable {
+
+
+		private ServerSocket serverSocket;
+		private Socket clientSocket;
+		private PrintWriter out;
+		private BufferedReader in;
+
+
+		//CONSTRUCTOR
+		//----------------
+		public ServerThreadForClient() {
+
+			try {
+				//Se crea el socket y se
+				//Acepta la solicitud entrante al socket
+				this.serverSocket = new ServerSocket(GameServerImpl.PORT);
+				this.clientSocket = serverSocket.accept();
+				
+				//Creamos un Stream de datos de entrada y otro de salida
+				this.out = new PrintWriter(clientSocket.getOutputStream(), true);
+				this.in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+			} catch (IOException e) {
+			}
+		}
+
+		//METODOS
+		//-----------------
+		@Override
+		public void run() {
+
+		}
+
+		/**
+		 * Cierra los streams y los socket
+		 */
+		public void finalize(){
+
+			try {
+				//Cerramos los stream
+				this.in.close();
+				this.out.close();
+				//Cerramos los socket
+				this.clientSocket.close();
+				this.serverSocket.close();
+			} catch (IOException e) {
+
+			}
+		}
+
+
+		//GETTERS
+		//-----------------
+
+		/**
+		 * 
+		 * @return
+		 */
+		public ServerSocket getServerSocket() {
+			return serverSocket;
+		}
+
+		/**
+		 * 
+		 * @return
+		 */
+		public Socket getClientSocket() {
+			return clientSocket;
+		}
+
+		/**
+		 * 
+		 * @return
+		 */
+		public PrintWriter getOut() {
+			return out;
+		}
+
+		/**
+		 * 
+		 * @return
+		 */
+		public BufferedReader getIn() {
+			return in;
+		}
+
+		/**
+		 * Obtiene el id de la sala
+		 * @return el id de la sala
+		 */
+		public int getIdRoom() {
+			//Como solo va a existir una sala, se hardcodea el id
+			return 1;
+		}
+
+
 	}
 
 }
