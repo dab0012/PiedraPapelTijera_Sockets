@@ -14,6 +14,18 @@
 	<natures>
 		<nature>org.eclipse.jdt.core.javanature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>build</name>
+			<type>2</type>
+			<location>/home/dnllns/Documentos/Mega/Cuarto/SDIS/PiedraPapelTijera/build</location>
+		</link>
+		<link>
+			<name>src</name>
+			<type>2</type>
+			<location>/home/dnllns/Documentos/Mega/Cuarto/SDIS/PiedraPapelTijera/src</location>
+		</link>
+	</linkedResources>
 	<filteredResources>
 		<filter>
 			<id>1647942372154</id>

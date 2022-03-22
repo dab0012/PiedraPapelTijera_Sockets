@@ -12,7 +12,9 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import es.ubu.lsi.common.GameElement;
 import es.ubu.lsi.common.Serial;
@@ -26,7 +28,8 @@ public class GameServerImpl implements GameServer {
 	private final static int PORT = 1500;
 	private final static int MAX_PLAYERS = 2;
 	private int numPlayers;
-	private HashMap<Integer, ServerThreadForClient> clientThreads;
+	private static HashMap<Integer, ServerThreadForClient> clientThreads;
+	private List<Thread> threads;
 	private int currentPlayerId = 0;
 
 
@@ -39,6 +42,7 @@ public class GameServerImpl implements GameServer {
 	public GameServerImpl() {
 		super();
 		clientThreads = new HashMap<Integer, ServerThreadForClient>();
+		threads = new ArrayList<Thread>();
 	}
 
 
@@ -62,7 +66,11 @@ public class GameServerImpl implements GameServer {
 		//Se inicializan 1 ServerThreadForClient para cada jugador
 		//El id del jugador se asigna en este momento, y es secuencial
 		while (numPlayers < MAX_PLAYERS){
-			clientThreads.put(++currentPlayerId, new ServerThreadForClient());
+			ServerThreadForClient t = new ServerThreadForClient();
+			Thread tt = new Thread(t);
+			tt.start();
+			clientThreads.put(++currentPlayerId, t);
+			threads.add(tt);
 		}
 	}
 
@@ -74,6 +82,7 @@ public class GameServerImpl implements GameServer {
 	public void shutdown() {
 		//Finalizamos cada ServerThreadForClient almacenado
 		clientThreads.forEach((key, value) -> value.finalize());
+		threads.forEach(t -> t.interrupt());
 	}
 
 	/**
@@ -96,18 +105,21 @@ public class GameServerImpl implements GameServer {
 
 
 	public static void main(String[] args) {
+		GameServerImpl game = new GameServerImpl();
+		game.startup();
 
 	}
 
 	/////////////////
 
-	class ServerThreadForClient implements Runnable {
+	public class ServerThreadForClient implements Runnable {
 
 
 		private ServerSocket serverSocket;
 		private Socket clientSocket;
 		private PrintWriter out;
 		private BufferedReader in;
+	
 
 
 		//CONSTRUCTOR
@@ -131,6 +143,8 @@ public class GameServerImpl implements GameServer {
 		//-----------------
 		@Override
 		public void run() {
+
+			System.out.println("Hola mundo");
 
 		}
 

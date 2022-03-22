@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="miBuild" default="Compilar" basedir=".">
+	<description>Ejemplo de fichero build.xml</description>
+
+	<!-- Propiedades del proyecto... -->
+
+	<!-- Directorios -->
+	<property name="src.dir" value="${basedir}/src" />
+	<property name="build.dir" value="${basedir}/build" />
+	<property name="dist.dir" value="${basedir}/dist" />
+	<property name="doc.dir" value="${basedir}/doc" />
+	<property name="lib.dir" value="${basedir}/lib" />
+
+	<!-- =============== Development Targets ================================= -->
+	<target name="Todas" description="Todas las tareas." depends="Borrar, Crear, Compilar, Distribuir, GenerarDoc" />
+
+	<!-- ==================== Target Crear================================= -->
+	<target name="Crear" description="Prepara todos los directorios">
+		<mkdir dir="${build.dir}" />
+		<mkdir dir="${dist.dir}" />
+		<mkdir dir="${doc.dir}" />
+	</target>
+
+	<!-- ==================== Target Borrar ==================================== -->
+	<target name="Borrar" description="Elimina todos los directorios.">
+		<delete dir="${build.dir}" />
+		<delete dir="${dist.dir}" />
+		<delete dir="${doc.dir}" />
+	</target>
+
+
+	<!-- ==================== Target Compilar ==================================== -->
+	<target name="Compilar" depends="Crear" description="Compila la solucion completa.">
+		<javac encoding="UTF-8" srcdir="${src.dir}" destdir="${build.dir}" source="1.8" target="1.8" includeantruntime="false" />
+	</target>
+
+
+	<!-- ==================== Target Distribuir ==================================== -->
+	<target name="Distribuir" depends="Compilar" description="Empaqueta la aplicacion un .jar.">
+		<jar destfile="${dist.dir}/miEmpaquetado-1.0.jar" basedir="${build.dir}" />
+	</target>
+
+	<!-- ==================== Target Javadoc ==================================== -->
+	<target name="GenerarDoc" depends="Compilar" description="Genera el javadoc">
+		<javadoc packagenames="prueba" sourcepath="${src.dir}" destdir="doc" version="true" windowtitle="MiPrueba ant">
+
+		</javadoc>
+		<echo message="java doc has been generated!" />
+	</target>
+
+</project>
