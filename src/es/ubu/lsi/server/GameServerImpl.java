@@ -297,6 +297,45 @@ public class GameServerImpl implements GameServer {
 
 
 
+	/**
+	 * Método que gestiona las acciones de los jugadores
+	 */
+	public void controlJuego() {
+
+	
+
 	}
 
+	public void obtenerResultados(ElementType cadena1, ElementType cadena2) {
+	
+
+		if (cadena1 == cadena2) {
+			// es empate
+		}
+		if (cadena1 == ElementType.PIEDRA) {
+			if (cadena2 == ElementType.TIJERA) {
+				// gana 1
+			} else {
+				// gana 2
+			}
+		}
+		if (cadena1 == ElementType.PAPEL) {
+			if (cadena2 == ElementType.PIEDRA) {
+				// gana 1
+			} else {
+				// gana 2
+			}
+
+		}
+		if (cadena1 == ElementType.TIJERA) {
+			if (cadena2 == ElementType.PAPEL) {
+				// gana 1
+			} else {
+				// gana 2
+			}
+
+		}
+
+
+	}
 }
