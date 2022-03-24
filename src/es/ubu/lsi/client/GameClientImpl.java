@@ -12,54 +12,41 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.net.UnknownHostException;
 
 import es.ubu.lsi.common.GameElement;
+import es.ubu.lsi.common.GameResult;
+import es.ubu.lsi.common.Util;
 
 public class GameClientImpl implements GameClient {
 
 	private String server;
 	private int port;
 	private String username;
+	private GameClientListener com;
 
-	class GameClientListener implements Runnable {
-
-		@Override
-		public void run() {
-			
-
-			try (
-					Socket echoSocket = new Socket(server, port);
-					PrintWriter out = new PrintWriter(echoSocket.getOutputStream(), true);
-					BufferedReader in = new BufferedReader(new InputStreamReader(echoSocket.getInputStream()));
-					BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in))
-			) {
-				String userInput;
-				while ((userInput = stdIn.readLine()) != null) {
-					out.println(userInput);
-					System.out.println("Se envia al servidor tu respuesta: " + in.readLine());
-				}
-			} catch (UnknownHostException e) {
-				System.err.println("Don't know about host " + server);
-				System.exit(1);
-			} catch (IOException e) {
-				System.err.println("Couldn't get I/O for the connection to " + server);
-				System.exit(1);
-			}
-
-		}
-
-	}
 
 	public GameClientImpl(String server, int port, String username) {
 		super();
 		this.server = server;
 		this.port = port;
 		this.username = username;
+	
 	}
 
 	public static void main(String[] args) {
-		// TODO Auto-generated method stub
+
+
+
+
+		System.out.println("Inicializando cliente...");
+		System.out.println("------------------------");
+
+		System.out.println("Introduce tu nombre de usuario: ");
+
+		//For test
+		String randomUsername = "pepito_" + (int)(Math.random()*1000);
+		GameClientImpl client = new GameClientImpl("localhost", 1500, randomUsername);
+		client.start();
 
 	}
 
@@ -68,8 +55,9 @@ public class GameClientImpl implements GameClient {
 	 */
 	@Override
 	public boolean start() {
-		// TODO Auto-generated method stub
-		return false;
+
+		com = new GameClientListener();
+		return true;
 	}
 
 	/**
@@ -81,11 +69,76 @@ public class GameClientImpl implements GameClient {
 
 	}
 
+
 	/**
 	 * Desconecta a el cliente del servidor
 	 */
 	@Override
 	public void disconnect() {
+
+	}
+
+
+
+	class GameClientListener implements Runnable {
+
+		private Socket s;
+		private PrintWriter out; 
+		private BufferedReader in;
+		private BufferedReader stdIn; 
+		private Thread t;
+		private GameResult status;
+
+		public GameClientListener(){
+			try {
+				this.s = new Socket(server, port);
+				this.out = new PrintWriter(this.s.getOutputStream(), true);
+				this.in = new BufferedReader(new InputStreamReader(s.getInputStream()));
+				this.stdIn = new BufferedReader(new InputStreamReader(System.in));
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+
+			this.t = new Thread(this);
+			t.start();
+		}
+
+
+		public GameResult readStatus() throws IOException{
+			String data = in.readLine();
+			if (data == null)
+				return null;
+			else
+				return (GameResult) Util.deserialize(in.readLine());
+		}
+
+
+		@Override
+		public void run() {
+			
+
+
+
+			//Enviamos al servidor nuestro nombre de usuario
+			out.println(username);
+
+			//Esperamos a que empiece la partida
+			
+			try {
+				while (readStatus() == null || !readStatus().equals(GameResult.DRAW) ){
+
+					System.out.println(Util.genMessage("Esperando a que comience la partida", "i"));
+					Thread.sleep(5000);
+
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
+
+
+
+		}
 
 	}
 

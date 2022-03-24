@@ -7,10 +7,7 @@
 
 package es.ubu.lsi.common;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
-import java.util.Base64;
+
 
 /**
  * Define el mensaje que se envía al servidor, incluyendo la jugada actual del jugador.
@@ -20,6 +17,12 @@ import java.util.Base64;
 public class GameElement implements java.io.Serializable {
 
 
+    private String status;
+    private String option;
 
+    public GameElement(String status, String option) {
+        this.status = status;
+        this.option = option;
+    }
 
 }

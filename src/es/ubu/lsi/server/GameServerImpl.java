@@ -12,12 +12,12 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
-import java.util.List;
 
 import es.ubu.lsi.common.GameElement;
-import es.ubu.lsi.common.Serial;
+import es.ubu.lsi.common.GameResult;
+import es.ubu.lsi.common.Util;
 
 public class GameServerImpl implements GameServer {
 
@@ -25,11 +25,13 @@ public class GameServerImpl implements GameServer {
 	//ATRIBUTOS
 	//------------------------
 
-	private final static int PORT = 1500;
+	private ServerSocket serverSocket;
+	private final int PORT = 1500;
+	
 	private final static int MAX_PLAYERS = 2;
 	private int numPlayers;
 	private static HashMap<Integer, ServerThreadForClient> clientThreads;
-	private List<Thread> threads;
+	//private List<Thread> threads;
 	private int currentPlayerId = 0;
 
 
@@ -41,8 +43,18 @@ public class GameServerImpl implements GameServer {
 	 */
 	public GameServerImpl() {
 		super();
+		try {
+			this.serverSocket = new ServerSocket(this.PORT);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
 		clientThreads = new HashMap<Integer, ServerThreadForClient>();
-		threads = new ArrayList<Thread>();
+		
+		System.out.println("Inicializando servidor del juego Piedra, papel o tijera...\n-------");
+		System.out.println("[i]" + " (" + getTime()  + ") Servidor a la escucha en: " + this.serverSocket.getLocalSocketAddress().toString());
+
 	}
 
 
@@ -65,12 +77,11 @@ public class GameServerImpl implements GameServer {
 
 		//Se inicializan 1 ServerThreadForClient para cada jugador
 		//El id del jugador se asigna en este momento, y es secuencial
-		while (numPlayers < MAX_PLAYERS){
+		int c = 0;
+		while (c < MAX_PLAYERS){
 			ServerThreadForClient t = new ServerThreadForClient();
-			Thread tt = new Thread(t);
-			tt.start();
 			clientThreads.put(++currentPlayerId, t);
-			threads.add(tt);
+			c++;
 		}
 	}
 
@@ -82,7 +93,7 @@ public class GameServerImpl implements GameServer {
 	public void shutdown() {
 		//Finalizamos cada ServerThreadForClient almacenado
 		clientThreads.forEach((key, value) -> value.finalize());
-		threads.forEach(t -> t.interrupt());
+		//threads.forEach(t -> t.interrupt());
 	}
 
 	/**
@@ -91,7 +102,12 @@ public class GameServerImpl implements GameServer {
 	@Override
 	public void broadcastRoom(GameElement element) {
 		//A cada cliente se le envia el GameElement serializado
-		clientThreads.forEach((id, thread) -> thread.getOut().println(Serial.serialize(element)));
+		clientThreads.forEach((id, thread) -> thread.send(element));
+	}
+
+	public void broadcastRoom(GameResult r) {
+		//A cada cliente se le envia el GameElement serializado
+		clientThreads.forEach((id, thread) -> thread.send(r));
 	}
 
 	/**
@@ -103,6 +119,15 @@ public class GameServerImpl implements GameServer {
 	}
 
 
+	public String getTime(){
+		Date d = new Date();
+		int min = d.getMinutes();
+		int sec = d.getSeconds();
+		int hor = d.getHours();
+	
+		return hor+":"+min+":"+sec;
+	}
+
 
 	public static void main(String[] args) {
 		GameServerImpl game = new GameServerImpl();
@@ -112,13 +137,16 @@ public class GameServerImpl implements GameServer {
 
 	/////////////////
 
+	/**
+	 * Clase que gestiona la comunicacion con el cliente desde el servidor
+	 */
 	public class ServerThreadForClient implements Runnable {
 
-
-		private ServerSocket serverSocket;
+		private Thread t;
 		private Socket clientSocket;
 		private PrintWriter out;
 		private BufferedReader in;
+		private String username;
 	
 
 
@@ -129,14 +157,20 @@ public class GameServerImpl implements GameServer {
 			try {
 				//Se crea el socket y se
 				//Acepta la solicitud entrante al socket
-				this.serverSocket = new ServerSocket(GameServerImpl.PORT);
 				this.clientSocket = serverSocket.accept();
 				
 				//Creamos un Stream de datos de entrada y otro de salida
 				this.out = new PrintWriter(clientSocket.getOutputStream(), true);
 				this.in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+
 			} catch (IOException e) {
+				e.printStackTrace();	
 			}
+
+			
+
+			t = new Thread(this);
+			t.start();
 		}
 
 		//METODOS
@@ -144,12 +178,38 @@ public class GameServerImpl implements GameServer {
 		@Override
 		public void run() {
 
-			System.out.println("Hola mundo");
+			System.out.println("[+] (" + getTime()  + ") Conexion entrante de: "+ this.clientSocket.getRemoteSocketAddress().toString());
+			
+			//Recibir el nombre de usuario
+			try{ this.username = in.readLine(); } catch (Exception e) {}
+			numPlayers++;
+			System.out.println("[+] (" + getTime()  + ") Se ha conectado el usuario " + this.username);
+			
+			//Esperar hasta que haya 2 jugadores
+			while (numPlayers < MAX_PLAYERS){
+				System.out.println("[i] (" + getTime()  + ") Esperando a que se conecte otro jugador...");
+				try {
+					Thread.sleep(15000);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+
+			//Enviamos la señal de comenzar a jugar
+			broadcastRoom(GameResult.DRAW);
+
+			
+			
+			
+
+			System.out.println("Finalizando...");
+			finalize();
 
 		}
+		
 
 		/**
-		 * Cierra los streams y los socket
+		 * Cierra los streams y socket y finaliza el hilo
 		 */
 		public void finalize(){
 
@@ -157,12 +217,14 @@ public class GameServerImpl implements GameServer {
 				//Cerramos los stream
 				this.in.close();
 				this.out.close();
+
 				//Cerramos los socket
 				this.clientSocket.close();
-				this.serverSocket.close();
-			} catch (IOException e) {
 
-			}
+			} catch (IOException e) {}
+
+			//Por ultimo se interrumpe el thread
+			this.t.interrupt();
 		}
 
 
@@ -209,6 +271,19 @@ public class GameServerImpl implements GameServer {
 			//Como solo va a existir una sala, se hardcodea el id
 			return 1;
 		}
+
+		/**
+		 * 
+		 * @return
+		 */
+		public Thread getThread(){
+			return t;
+		}
+
+		public void send(Object data){
+			this.out.print(Util.serialize(data));
+		}
+
 
 
 	}

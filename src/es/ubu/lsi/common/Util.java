@@ -1,5 +1,6 @@
 package es.ubu.lsi.common;
 
+import java.util.Date;
 import java.io.ByteArrayOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -7,14 +8,23 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.Base64;
 
+public class Util {
 
-/**
- * Clase de utilidad para serializar y leer objetos serializados
- */
-public class Serial {
+    public static String genMessage(String message, String type){
+        return "[" + type + "] (" + getTime()  + ") " + message;
+    }
+
+    public static String getTime(){
+		Date d = new Date();
+		int min = d.getMinutes();
+		int sec = d.getSeconds();
+		int hor = d.getHours();
+	
+		return hor+":"+min+":"+sec;
+	}
     
 
-    /**
+        /**
      * Serializa un objeto
      * @param o
      * @return string con el objeto codificado en base64
