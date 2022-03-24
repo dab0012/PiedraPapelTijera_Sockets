@@ -2,16 +2,35 @@ package es.ubu.lsi.common;
 
 import java.util.Date;
 import java.io.ByteArrayOutputStream;
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.PrintWriter;
 import java.util.Base64;
 
 public class Util {
+	
+	public static void sendTo(PrintWriter w, Object o) {
+		w.println(serialize(o));
+	}
+	
+	public static Object readFrom(BufferedReader b) {
+		try {
+			return deserialize(b.readLine());
+		} catch (IOException e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
 
     public static String genMessage(String message, String type){
-        return "[" + type + "] (" + getTime()  + ") " + message;
+        return "[" + type + "][" + getTime()  + "] " + message;
+    }
+    
+    public static void printFormated(String message, String type){
+    	System.out.println(genMessage(message, type));
     }
 
     public static String getTime(){

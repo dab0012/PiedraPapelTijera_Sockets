@@ -14,6 +14,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Map.Entry;
 
 import es.ubu.lsi.common.GameElement;
 import es.ubu.lsi.common.GameResult;
@@ -53,7 +54,7 @@ public class GameServerImpl implements GameServer {
 		clientThreads = new HashMap<Integer, ServerThreadForClient>();
 		
 		System.out.println("Inicializando servidor del juego Piedra, papel o tijera...\n-------");
-		System.out.println("[i]" + " (" + getTime()  + ") Servidor a la escucha en: " + this.serverSocket.getLocalSocketAddress().toString());
+		System.out.println(Util.genMessage("Servidor a la escucha en: " + this.serverSocket.getLocalSocketAddress().toString(), "i"));
 
 	}
 
@@ -102,12 +103,22 @@ public class GameServerImpl implements GameServer {
 	@Override
 	public void broadcastRoom(GameElement element) {
 		//A cada cliente se le envia el GameElement serializado
-		clientThreads.forEach((id, thread) -> thread.send(element));
+		
+		for (Entry<Integer, ServerThreadForClient> e : clientThreads.entrySet())
+			e.getValue().send(element);
+			
+			
+			
+		//clientThreads.forEach((id, thread) -> thread.send(element));
 	}
 
 	public void broadcastRoom(GameResult r) {
 		//A cada cliente se le envia el GameElement serializado
-		clientThreads.forEach((id, thread) -> thread.send(r));
+		
+		for (Entry<Integer, ServerThreadForClient> e : clientThreads.entrySet())
+			e.getValue().send(r);
+		
+		//clientThreads.forEach((id, thread) -> thread.send(r));
 	}
 
 	/**
@@ -115,17 +126,8 @@ public class GameServerImpl implements GameServer {
 	 */
 	@Override
 	public void remove(int id) {
+		clientThreads.get(id).finalize();
 		clientThreads.remove(id);
-	}
-
-
-	public String getTime(){
-		Date d = new Date();
-		int min = d.getMinutes();
-		int sec = d.getSeconds();
-		int hor = d.getHours();
-	
-		return hor+":"+min+":"+sec;
 	}
 
 
@@ -178,16 +180,25 @@ public class GameServerImpl implements GameServer {
 		@Override
 		public void run() {
 
-			System.out.println("[+] (" + getTime()  + ") Conexion entrante de: "+ this.clientSocket.getRemoteSocketAddress().toString());
+			System.out.println( 
+					Util.genMessage(
+							"Conexion entrante de: " + this.clientSocket.getRemoteSocketAddress().toString(),
+							"+"
+					)
+			);
 			
 			//Recibir el nombre de usuario
-			try{ this.username = in.readLine(); } catch (Exception e) {}
+			try{ 
+				//this.username = in.readLine();
+				this.username = (String) Util.readFrom(in);
+				
+			} catch (Exception e) {}
 			numPlayers++;
-			System.out.println("[+] (" + getTime()  + ") Se ha conectado el usuario " + this.username);
+			System.out.println(Util.genMessage("Se ha conectado el usuario " + this.username, "+"));
 			
 			//Esperar hasta que haya 2 jugadores
 			while (numPlayers < MAX_PLAYERS){
-				System.out.println("[i] (" + getTime()  + ") Esperando a que se conecte otro jugador...");
+				System.out.println(Util.genMessage("Esperando a que se conecte otro jugador...", "i"));
 				try {
 					Thread.sleep(15000);
 				} catch (InterruptedException e) {
@@ -281,7 +292,7 @@ public class GameServerImpl implements GameServer {
 		}
 
 		public void send(Object data){
-			this.out.print(Util.serialize(data));
+			this.out.println(Util.serialize(data));
 		}
 
 

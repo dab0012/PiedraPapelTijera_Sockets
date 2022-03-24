@@ -41,7 +41,7 @@ public class GameClientImpl implements GameClient {
 		System.out.println("Inicializando cliente...");
 		System.out.println("------------------------");
 
-		System.out.println("Introduce tu nombre de usuario: ");
+		Util.printFormated("Introduce tu nombre de usuario: ", "?");
 
 		//For test
 		String randomUsername = "pepito_" + (int)(Math.random()*1000);
@@ -66,7 +66,6 @@ public class GameClientImpl implements GameClient {
 	@Override
 	public void sendElement(GameElement element) {
 		// TODO Auto-generated method stub
-
 	}
 
 
@@ -109,7 +108,7 @@ public class GameClientImpl implements GameClient {
 			if (data == null)
 				return null;
 			else
-				return (GameResult) Util.deserialize(in.readLine());
+				return (GameResult) Util.deserialize(data);
 		}
 
 
@@ -120,20 +119,28 @@ public class GameClientImpl implements GameClient {
 
 
 			//Enviamos al servidor nuestro nombre de usuario
-			out.println(username);
+			
+			//out.println(username);
+			Util.printFormated("Enviando el username al servidor", "i");
+			Util.sendTo(out, username);
 
 			//Esperamos a que empiece la partida
 			
 			try {
-				while (readStatus() == null || !readStatus().equals(GameResult.DRAW) ){
+				
+				while (!((GameResult) readStatus()).equals(GameResult.DRAW) ){
 
-					System.out.println(Util.genMessage("Esperando a que comience la partida", "i"));
+					Util.printFormated("Esperando a que comience la partida", "i");
 					Thread.sleep(5000);
 
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
+			
+			Util.printFormated("Comienza la partida", "!");
+
+			
 
 
 
