@@ -12,36 +12,33 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map.Entry;
 
+import es.ubu.lsi.common.ElementType;
 import es.ubu.lsi.common.GameElement;
 import es.ubu.lsi.common.GameResult;
 import es.ubu.lsi.common.Util;
 
 public class GameServerImpl implements GameServer {
 
-
-	//ATRIBUTOS
-	//------------------------
+	// ATRIBUTOS
+	// ------------------------
 
 	private ServerSocket serverSocket;
 	private final int PORT = 1500;
-	
+
 	private final static int MAX_PLAYERS = 2;
 	private int numPlayers;
-	private static HashMap<Integer, ServerThreadForClient> clientThreads;
-	//private List<Thread> threads;
+
+	ServerThreadForClient ct1;
+	ServerThreadForClient ct2;
+
 	private int currentPlayerId = 0;
 
+	// CONSTRUCTOR
+	// ------------------------
 
-	//CONSTRUCTOR
-	//------------------------
-
-	/**
-	 * 
-	 */
 	public GameServerImpl() {
 		super();
 		try {
@@ -51,39 +48,22 @@ public class GameServerImpl implements GameServer {
 			e.printStackTrace();
 		}
 
-		clientThreads = new HashMap<Integer, ServerThreadForClient>();
-		
 		System.out.println("Inicializando servidor del juego Piedra, papel o tijera...\n-------");
-		System.out.println(Util.genMessage("Servidor a la escucha en: " + this.serverSocket.getLocalSocketAddress().toString(), "i"));
+		Util.printFormated("Servidor a la escucha en: " + this.serverSocket.getLocalSocketAddress().toString(), "i");
 
 	}
 
+	// METODOS DE CLASE
+	// ------------------------
 
-	//METODOS DE CLASE
-	//------------------------
-
-	/**
-	 * 
-	 * @return
-	 */
 	public int getNumPlayers() {
 		return this.numPlayers;
 	}
 
-	/**
-	 * 
-	 */
 	@Override
 	public void startup() {
-
-		//Se inicializan 1 ServerThreadForClient para cada jugador
-		//El id del jugador se asigna en este momento, y es secuencial
-		int c = 0;
-		while (c < MAX_PLAYERS){
-			ServerThreadForClient t = new ServerThreadForClient();
-			clientThreads.put(++currentPlayerId, t);
-			c++;
-		}
+		ct1 = new ServerThreadForClient(1);
+		ct2 = new ServerThreadForClient(2);
 	}
 
 	/**
@@ -92,9 +72,12 @@ public class GameServerImpl implements GameServer {
 	 */
 	@Override
 	public void shutdown() {
-		//Finalizamos cada ServerThreadForClient almacenado
-		clientThreads.forEach((key, value) -> value.finalize());
-		//threads.forEach(t -> t.interrupt());
+		// Finalizamos cada ServerThreadForClient almacenado
+		// clientThreads.forEach((key, value) -> value.finalize());
+		// //threads.forEach(t -> t.interrupt());
+
+		ct1.finalize();
+		ct2.finalize();
 	}
 
 	/**
@@ -102,23 +85,21 @@ public class GameServerImpl implements GameServer {
 	 */
 	@Override
 	public void broadcastRoom(GameElement element) {
-		//A cada cliente se le envia el GameElement serializado
-		
-		for (Entry<Integer, ServerThreadForClient> e : clientThreads.entrySet())
-			e.getValue().send(element);
-			
-			
-			
-		//clientThreads.forEach((id, thread) -> thread.send(element));
+		// A cada cliente se le envia el GameElement serializado
+
+		// for (Entry<Integer, ServerThreadForClient> e : clientThreads.entrySet())
+		// e.getValue().send(element);
+
+		ct1.send(element);
+		ct2.send(element);
+
+		// clientThreads.forEach((id, thread) -> thread.send(element));
 	}
 
 	public void broadcastRoom(GameResult r) {
-		//A cada cliente se le envia el GameElement serializado
-		
-		for (Entry<Integer, ServerThreadForClient> e : clientThreads.entrySet())
-			e.getValue().send(r);
-		
-		//clientThreads.forEach((id, thread) -> thread.send(r));
+		// A cada cliente se le envia el GameElement serializado
+		ct1.send(r);
+		ct2.send(r);
 	}
 
 	/**
@@ -126,16 +107,26 @@ public class GameServerImpl implements GameServer {
 	 */
 	@Override
 	public void remove(int id) {
-		clientThreads.get(id).finalize();
-		clientThreads.remove(id);
+		getClientThread(id).finalize();
 	}
 
+
+	public ServerThreadForClient getClientThread(int id) {
+		if (id == 1)
+			return ct1;
+		else if (id == 2)
+			return ct2;
+		else
+			return null;
+	}
 
 	public static void main(String[] args) {
 		GameServerImpl game = new GameServerImpl();
 		game.startup();
 
 	}
+
+
 
 	/////////////////
 
@@ -149,98 +140,210 @@ public class GameServerImpl implements GameServer {
 		private PrintWriter out;
 		private BufferedReader in;
 		private String username;
-	
+		private int playerId;
 
-
-		//CONSTRUCTOR
-		//----------------
-		public ServerThreadForClient() {
+		// CONSTRUCTOR
+		// ----------------
+		public ServerThreadForClient(int playerId) {
 
 			try {
-				//Se crea el socket y se
-				//Acepta la solicitud entrante al socket
+				// Se crea el socket y se
+				// Acepta la solicitud entrante al socket
 				this.clientSocket = serverSocket.accept();
-				
-				//Creamos un Stream de datos de entrada y otro de salida
+
+				// Creamos un Stream de datos de entrada y otro de salida
 				this.out = new PrintWriter(clientSocket.getOutputStream(), true);
 				this.in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 
 			} catch (IOException e) {
-				e.printStackTrace();	
+				e.printStackTrace();
 			}
 
-			
+			this.playerId = playerId;
 
 			t = new Thread(this);
 			t.start();
 		}
 
-		//METODOS
-		//-----------------
+		// METODOS
+		// -----------------
 		@Override
 		public void run() {
 
-			System.out.println( 
-					Util.genMessage(
-							"Conexion entrante de: " + this.clientSocket.getRemoteSocketAddress().toString(),
-							"+"
-					)
-			);
-			
-			//Recibir el nombre de usuario
-			try{ 
-				//this.username = in.readLine();
+			Util.printFormated("Conexion entrante de: " + this.clientSocket.getRemoteSocketAddress().toString(), "+");
+
+			// Recibir el nombre de usuario
+			try {
+				// this.username = in.readLine();
 				this.username = (String) Util.readFrom(in);
-				
-			} catch (Exception e) {}
-			numPlayers++;
-			System.out.println(Util.genMessage("Se ha conectado el usuario " + this.username, "+"));
-			
-			//Esperar hasta que haya 2 jugadores
-			while (numPlayers < MAX_PLAYERS){
-				System.out.println(Util.genMessage("Esperando a que se conecte otro jugador...", "i"));
-				try {
-					Thread.sleep(15000);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
+
+			} catch (Exception e) {
 			}
 
-			//Enviamos la señal de comenzar a jugar
-			broadcastRoom(GameResult.DRAW);
+			numPlayers++;
+			Util.printFormated("Se ha conectado el usuario " + this.username, "+");
 
-			
-			
-			
+			// Esperar hasta que haya 2 jugadores
+			while (numPlayers < MAX_PLAYERS) {
+				Util.printFormated("Esperando a que se conecte otro jugador...", "i");
+
+				// try {
+				// Thread.sleep(15000);
+				// } catch (InterruptedException e) {
+				// e.printStackTrace();
+				// }
+			}
+
+			// Comienza la partida
+			broadcastRoom(GameResult.WAITING);
+
+			jugarPartida();
 
 			System.out.println("Finalizando...");
 			finalize();
 
 		}
-		
+
+		public int getOponentId() {
+			if (playerId == 1)
+				return 2;
+			else
+				return 1;
+		}
+
+		public GameElement getOponentGame() {
+			//BufferedReader out = getThread(getOponentId()).in;
+			return (GameElement) Util.readFrom(getClientThread(getOponentId()).in);
+
+		}
+
+		public GameElement getMyGame() {
+			//BufferedReader out = getThread(getOponentId()).in;
+			return (GameElement) Util.readFrom(in);
+
+		}
+
 
 		/**
 		 * Cierra los streams y socket y finaliza el hilo
 		 */
-		public void finalize(){
+		public void finalize() {
 
 			try {
-				//Cerramos los stream
+				// Cerramos los stream
 				this.in.close();
 				this.out.close();
 
-				//Cerramos los socket
+				// Cerramos los socket
 				this.clientSocket.close();
 
-			} catch (IOException e) {}
+			} catch (IOException e) {
+			}
 
-			//Por ultimo se interrumpe el thread
+			// Por ultimo se interrumpe el thread
 			this.t.interrupt();
+
 		}
 
+		public void send(Object data) {
+			this.out.println(Util.serialize(data));
+		}
 
-		//GETTERS
-		//-----------------
+		/**
+		 * Método que gestiona las acciones de los jugadores
+		 */
+		public void jugarPartida() {
+
+			// int numPartida = 0;
+
+			while (true) {
+
+				GameElement player1Game = getMyGame();
+				GameElement player2Game = getOponentGame();
+
+				/*
+				 * Se espera hasta que ambos jugadores envien su respuesta
+				 * enviamos la opcion waiting continuamente
+				 */
+				while (player1Game == null || player2Game == null) {
+
+					Util.printFormated("Esperando a que los jugadores envien su jugada", "i");
+					broadcastRoom(new GameElement(0, GameResult.WAITING));
+
+					// try {
+					// Thread.sleep(5000);
+					// } catch (InterruptedException e) {
+					// e.printStackTrace();
+					// }
+
+					player1Game = getMyGame();
+					player2Game = getOponentGame();
+
+				}
+
+				if (player1Game.getOption().equals(ElementType.LOGOUT)) {
+					// Eliminamos al jugador
+					remove(this.playerId);
+					break;
+				}
+
+				// Se juega esta partida
+				// numPartida++;
+
+				int winner = obtenerResultados(player1Game, player2Game);
+
+				// Util.printFormated("Resultado de la partida " + this.username + " vs " +
+				// o.username + " numero " + numPartida, "*");
+
+				if (this.playerId == winner) {
+					send(GameResult.WIN);
+					System.out.println("Gana " + this.username);
+				} else if (-1 == winner) {
+					send(GameResult.DRAW);
+					System.out.println("Ha habido un empate");
+				} else {
+					send(GameResult.LOSE);
+				}
+
+			}
+
+		}
+
+		/**
+		 * Obtiene el id del jugador que gana la partida
+		 * 
+		 * @param optionPlayer1
+		 * @param optionPlayer2
+		 * @return
+		 */
+		public int obtenerResultados(GameElement optP1, GameElement optP2) {
+
+			ElementType p1 = optP1.getOption();
+			ElementType p2 = optP2.getOption();
+
+			if (p1.equals(p2))
+				return -1;
+			else if (p1.equals(ElementType.PIEDRA))
+				if (p2.equals(ElementType.TIJERA))
+					return optP1.getPlayerId();
+				else
+					return optP2.getPlayerId();
+			else if (p1.equals(ElementType.PAPEL))
+				if (p2.equals(ElementType.PIEDRA))
+					return optP1.getPlayerId();
+				else
+					return optP2.getPlayerId();
+			else if (p1.equals(ElementType.TIJERA))
+				if (p2.equals(ElementType.PAPEL))
+					return optP1.getPlayerId();
+				else
+					return optP2.getPlayerId();
+			else
+				return -2;
+		}
+
+		// GETTERS
+		// -----------------
 
 		/**
 		 * 
@@ -276,10 +379,11 @@ public class GameServerImpl implements GameServer {
 
 		/**
 		 * Obtiene el id de la sala
+		 * 
 		 * @return el id de la sala
 		 */
 		public int getIdRoom() {
-			//Como solo va a existir una sala, se hardcodea el id
+			// Como solo va a existir una sala, se hardcodea el id
 			return 1;
 		}
 
@@ -287,55 +391,9 @@ public class GameServerImpl implements GameServer {
 		 * 
 		 * @return
 		 */
-		public Thread getThread(){
+		public Thread getThread() {
 			return t;
 		}
-
-		public void send(Object data){
-			this.out.println(Util.serialize(data));
-		}
-
-
-
-	/**
-	 * Método que gestiona las acciones de los jugadores
-	 */
-	public void controlJuego() {
-
-	
-
-	}
-
-	public void obtenerResultados(ElementType cadena1, ElementType cadena2) {
-	
-
-		if (cadena1 == cadena2) {
-			// es empate
-		}
-		if (cadena1 == ElementType.PIEDRA) {
-			if (cadena2 == ElementType.TIJERA) {
-				// gana 1
-			} else {
-				// gana 2
-			}
-		}
-		if (cadena1 == ElementType.PAPEL) {
-			if (cadena2 == ElementType.PIEDRA) {
-				// gana 1
-			} else {
-				// gana 2
-			}
-
-		}
-		if (cadena1 == ElementType.TIJERA) {
-			if (cadena2 == ElementType.PAPEL) {
-				// gana 1
-			} else {
-				// gana 2
-			}
-
-		}
-
 
 	}
 }

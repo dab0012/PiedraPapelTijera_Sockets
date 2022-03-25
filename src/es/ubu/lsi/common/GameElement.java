@@ -8,7 +8,6 @@
 package es.ubu.lsi.common;
 
 
-
 /**
  * Define el mensaje que se envía al servidor, incluyendo la jugada actual del jugador.
  * @author dnllns
@@ -17,12 +16,31 @@ package es.ubu.lsi.common;
 public class GameElement implements java.io.Serializable {
 
 
-    private String status;
-    private String option;
+    private int playerId;
+    private ElementType option;
+    private GameResult result;
 
-    public GameElement(String status, String option) {
-        this.status = status;
+    public GameElement(int playerId, ElementType option) {
+        this.playerId = playerId;
         this.option = option;
+    }
+
+    public GameElement(int playerId, GameResult result) {
+        this.playerId = playerId;
+        this.result = result;
+    }
+
+
+    public int getPlayerId() {
+        return playerId;
+    }
+
+    public ElementType getOption() {
+        return option;
+    }
+
+    public GameResult getResult() {
+        return result;
     }
 
 }
