@@ -13,6 +13,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
+import es.ubu.lsi.common.ElementType;
 import es.ubu.lsi.common.GameElement;
 import es.ubu.lsi.common.GameResult;
 import es.ubu.lsi.common.Util;
@@ -22,14 +23,17 @@ public class GameClientImpl implements GameClient {
 	private String server;
 	private int port;
 	private String username;
-	private GameClientListener com;
+	private GameClientListener clientListener;
+	private int id;
 
-
-	public GameClientImpl(String server, int port, String username) {
+	public GameClientImpl(String server, int port, String username, int id) {
 		super();
 		this.server = server;
 		this.port = port;
 		this.username = username;
+		this.id = id;
+		this.clientListener = new GameClientListener();
+
 	
 	}
 
@@ -45,8 +49,12 @@ public class GameClientImpl implements GameClient {
 
 		//For test
 		String randomUsername = "pepito_" + (int)(Math.random()*1000);
-		GameClientImpl client = new GameClientImpl("localhost", 1500, randomUsername);
-		client.start();
+		int randomId = (int)(Math.random()*1000);
+
+		GameClientImpl client1 = new GameClientImpl("localhost", 1500, randomUsername, randomId);
+
+		client1.start();
+
 
 	}
 
@@ -56,7 +64,12 @@ public class GameClientImpl implements GameClient {
 	@Override
 	public boolean start() {
 
-		com = new GameClientListener();
+		//Enviamos al servidor nuestro nombre de usuario
+		
+		//out.println(username);
+		Util.printFormated("Enviando el username al servidor", "i");
+		Util.sendTo(clientListener.out, username);
+		clientListener.t.start();
 		return true;
 	}
 
@@ -65,7 +78,7 @@ public class GameClientImpl implements GameClient {
 	 */
 	@Override
 	public void sendElement(GameElement element) {
-		// TODO Auto-generated method stub
+		Util.sendTo(clientListener.out, element);
 	}
 
 
@@ -77,6 +90,43 @@ public class GameClientImpl implements GameClient {
 
 	}
 
+	public GameElement selectOption(){
+
+		BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+		String option = "";
+
+		do {
+
+			Util.printFormated("Introduce tu jugada (piedra, papel, tijera o logout) ", "?");
+			try {
+				option = br.readLine();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+
+
+		}
+		while(!option.equalsIgnoreCase("piedra") && !option.equalsIgnoreCase("papel") &&
+		!option.equalsIgnoreCase("tijera") && !option.equalsIgnoreCase("logout"));
+
+
+		GameElement g;
+		if (option.equalsIgnoreCase("piedra")){
+			g = new GameElement(this.id, ElementType.PIEDRA);
+		}
+		else if (option.equalsIgnoreCase("papel")){
+			g = new GameElement(this.id, ElementType.PAPEL);
+		} 
+		else if (option.equalsIgnoreCase("tijera")){
+			g = new GameElement(this.id, ElementType.TIJERA);
+		}
+		else {
+			g = new GameElement(this.id, ElementType.LOGOUT);
+		}
+	
+		return g;
+		
+	}
 
 
 	class GameClientListener implements Runnable {
@@ -84,31 +134,33 @@ public class GameClientImpl implements GameClient {
 		private Socket s;
 		private PrintWriter out; 
 		private BufferedReader in;
-		private BufferedReader stdIn; 
+		// private BufferedReader stdIn; 
 		private Thread t;
-		private GameResult status;
 
 		public GameClientListener(){
 			try {
 				this.s = new Socket(server, port);
 				this.out = new PrintWriter(this.s.getOutputStream(), true);
 				this.in = new BufferedReader(new InputStreamReader(s.getInputStream()));
-				this.stdIn = new BufferedReader(new InputStreamReader(System.in));
+				// this.stdIn = new BufferedReader(new InputStreamReader(System.in));
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
 
 			this.t = new Thread(this);
-			t.start();
 		}
 
 
-		public GameResult readStatus() throws IOException{
+		public GameResult readGameResult() throws IOException{
 			String data = in.readLine();
 			if (data == null)
 				return null;
-			else
-				return (GameResult) Util.deserialize(data);
+			else {
+				GameElement ge = (GameElement) Util.deserialize(data);
+				GameResult gr = ge.getResult();
+				
+				return  gr;
+			}
 		}
 
 
@@ -116,35 +168,39 @@ public class GameClientImpl implements GameClient {
 		public void run() {
 			
 
+			while (true){
 
-
-			//Enviamos al servidor nuestro nombre de usuario
-			
-			//out.println(username);
-			Util.printFormated("Enviando el username al servidor", "i");
-			Util.sendTo(out, username);
-
-			//Esperamos a que empiece la partida
-			
-			try {
+				//Esperamos a que empiece la partida
 				
-				while (!((GameResult) readStatus()).equals(GameResult.DRAW) ){
+				try {
+					
+					GameResult r = readGameResult();
+					
+					while (!r.equals(GameResult.WAITING) ){
 
-					Util.printFormated("Esperando a que comience la partida", "i");
-					Thread.sleep(5000);
+						Util.printFormated("Esperando a que comience la partida", "i");
+						Thread.sleep(5000);
 
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
 				}
-			} catch (Exception e) {
-				e.printStackTrace();
+				
+				Util.printFormated("Comienza la partida", "!");
+
+
+				GameElement opt = selectOption();
+				Util.sendTo(out, opt);
+				
+				ElementType o = opt.getOption();
+
+				if (o.equals(ElementType.LOGOUT))
+					break;
+
+
+
 			}
-			
-			Util.printFormated("Comienza la partida", "!");
-
-			
-
-
-
-
+	
 		}
 
 	}
