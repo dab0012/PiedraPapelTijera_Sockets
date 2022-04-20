@@ -6,14 +6,9 @@
  */
 package es.ubu.lsi.server;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.net.ServerSocket;
-import java.net.Socket;
-import java.util.HashMap;
-import java.util.Map.Entry;
+import java.util.ArrayList;
 
 import es.ubu.lsi.common.ElementType;
 import es.ubu.lsi.common.GameElement;
@@ -47,7 +42,7 @@ public class GameServerImpl implements GameServer {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-
+		
 		System.out.println("Inicializando servidor del juego Piedra, papel o tijera...\n-------");
 		Util.printFormated("Servidor a la escucha en: " + this.serverSocket.getLocalSocketAddress().toString(), "i");
 
@@ -63,12 +58,7 @@ public class GameServerImpl implements GameServer {
 	@Override
 	public void startup() {
 
-		ct1 = new UserConection(serverSocket);
-		ct2 = new UserConection(serverSocket);
-
 		new Thread(new ServerThreadForClient()).start();
-
-
 		
 	}
 
@@ -123,88 +113,116 @@ public class GameServerImpl implements GameServer {
 
 	public void jugarPartida() {
 
-		// int numPartida = 0;
+
+
+		ct1 = new UserConection(serverSocket);
+		ct2 = new UserConection(serverSocket);
+
 		
-		
+		//Solicitar nombres de usuario a los jugadores		
 		String usernameP1 = (String) Util.readFrom(ct1.getIn());
 		ct1.setUsername(usernameP1);
 		String usernameP2 = (String) Util.readFrom(ct2.getIn()); 
 		ct2.setUsername(usernameP2);
 
+
+		int numRonda = 0;
+
+		//Bucle del juego
 		while (true) {
-
-
 
 
 			//Informamos del comienzo de la partida
 			broadcastRoom(new GameElement(0, GameResult.WAITING));
 
-
+			Util.printFormated("Ronda " + ++numRonda, "i");
+			Util.printFormated("Esperando a que los jugadores envien su jugada", "i");
 			GameElement player1Game = (GameElement) Util.readFrom(ct1.getIn());
 			GameElement player2Game = (GameElement) Util.readFrom(ct2.getIn());
 
-			/*
-			 * Se espera hasta que ambos jugadores envien su respuesta
-			 * enviamos la opcion waiting continuamente
-			 */
-			while (player1Game == null || player2Game == null) {
 
-				Util.printFormated("Esperando a que los jugadores envien su jugada", "i");
-				broadcastRoom(new GameElement(0, GameResult.WAITING));
+			
+			//Se controla la solicitud de final de partida por parte de los jugadores
+			boolean playerDisconected = false;
 
-				// try {
-				// Thread.sleep(5000);
-				// } catch (InterruptedException e) {
-				// e.printStackTrace();
-				// }
-
-				player1Game = (GameElement) Util.readFrom(ct1.getIn());
-				player2Game = (GameElement) Util.readFrom(ct2.getIn());
-
-			}
-
+						
+			//Se informa al otro participante de que ha habido una desconexion de su contrincante
 			if (player1Game.getOption().equals(ElementType.LOGOUT)) {
 				// Eliminamos al jugador
 				remove(player1Game.getPlayerId());
-				break;
+				Util.printFormated("El usuario " + ct1.getUsername() + " se ha desconectado", "+");
+				Util.printFormated("Esperando a que se conecte un contrincate", "+");
+				playerDisconected = true;
+				ct2.send(new GameElement(player2Game.getPlayerId() , ElementType.DISCONECTED));
+				ct1 = new UserConection(serverSocket);
+				usernameP1 = (String) Util.readFrom(ct1.getIn());
+				ct1.setUsername(usernameP1);
+	
 			}
-			else if (player2Game.getOption().equals(ElementType.LOGOUT)) {
+			if (player2Game.getOption().equals(ElementType.LOGOUT)) {
 				// Eliminamos al jugador
 				remove(player2Game.getPlayerId());
-				break;
-			}
-
-			// Se juega esta partida
-			// numPartida++;
-
-			Util.printFormated("El usuario " + ct1.getUsername() + " ha enviado " +  player1Game.getOption().toString(), "i");
-			Util.printFormated("El usuario " + ct2.getUsername() + " ha enviado " +  player2Game.getOption().toString(), "i");
-
-
-			int winner = obtenerResultados(player1Game, player2Game);
-
-			Util.printFormated("Resultado de la partida " + usernameP1 + " vs " + usernameP2 , "*");
-
-
-			if (winner == player1Game.getPlayerId()){
-				ct1.send(GameResult.WIN);
-				ct2.send(GameResult.LOSE);
-				Util.printFormated("Gana " + usernameP1, "i");
+				Util.printFormated("El usuario " + ct1.getUsername() + " se ha desconectado", "i");
+				Util.printFormated("Esperando a que se conecte un contrincate", "+");
+				playerDisconected = true;
+				ct1.send(new GameElement(player1Game.getPlayerId() , ElementType.DISCONECTED));
+				ct2 = new UserConection(serverSocket);
+				usernameP2 = (String) Util.readFrom(ct2.getIn()); 
+				ct2.setUsername(usernameP2);
 
 			}
-			else if (winner == player2Game.getPlayerId()){
-				ct2.send(GameResult.WIN);
-				ct1.send(GameResult.LOSE);
-				Util.printFormated("Gana " + usernameP2, "i");
-
-			}
-			else if (winner == -1){
-				ct1.send(GameResult.DRAW);
-				ct2.send(GameResult.DRAW);
-				Util.printFormated("Ha habido un empate", "i");
-
+			//Se informa a los clientes de que ambos jugadores estan listos
+			else{
+				ct1.send(new GameElement(player1Game.getPlayerId() , ElementType.CONTINUE));
+				ct2.send(new GameElement(player2Game.getPlayerId() , ElementType.CONTINUE));
 			}
 
+
+			/**
+			 * Comienzo de la partida "Evaluacion de piedra papel tijera"
+			 */
+
+			if (!playerDisconected){
+
+				Util.printFormated("El usuario " + ct1.getUsername() + " ha enviado " +  player1Game.getOption().toString(), "i");
+				Util.printFormated("El usuario " + ct2.getUsername() + " ha enviado " +  player2Game.getOption().toString(), "i");
+
+				//Informar a los jugadores de la jugada del rival
+				Util.sendTo(ct1.getOut(), "El usuario " + ct2.getUsername() + " ha enviado " +  player2Game.getOption().toString());
+				Util.sendTo(ct2.getOut(), "El usuario " + ct1.getUsername() + " ha enviado " +  player1Game.getOption().toString());
+
+
+				//Evaluacion
+				int winner = obtenerResultados(player1Game, player2Game);
+
+				//Mostrar el resultado en el servidor y responder a los jugadores
+				Util.printFormated("Resultado de la partida " + usernameP1 + " vs " + usernameP2 , "*");
+
+				if (winner == player1Game.getPlayerId()){
+					
+					ct1.send(new GameElement(player1Game.getPlayerId() ,GameResult.WIN));
+					ct2.send(new GameElement(player2Game.getPlayerId() ,GameResult.LOSE));
+
+					Util.printFormated("Gana " + usernameP1, "*");
+				}
+				else if (winner == player2Game.getPlayerId()){
+					ct2.send(new GameElement(player2Game.getPlayerId() ,GameResult.WIN));
+					ct1.send(new GameElement(player1Game.getPlayerId() ,GameResult.LOSE));
+
+					Util.printFormated("Gana " + usernameP2, "*");
+				}
+				else if (winner == -1){
+					ct1.send(new GameElement(player1Game.getPlayerId() ,GameResult.DRAW));
+					ct2.send(new GameElement(player2Game.getPlayerId() ,GameResult.DRAW));
+
+					Util.printFormated("Ha habido un empate", "*");
+				}
+			}
+			else {
+
+				Util.printFormated("Se reinicia la partida debido a la desconexion de un jugador", "i");
+
+			}
 
 		}
 		
@@ -253,8 +271,8 @@ public class GameServerImpl implements GameServer {
 		@Override
 		public void run() {
 
+			Util.printLogo();
 			jugarPartida();
-
 			System.out.println("Finalizando...");
 
 		}

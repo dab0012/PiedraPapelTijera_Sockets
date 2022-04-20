@@ -16,6 +16,8 @@ public enum ElementType {
 	PIEDRA,
 	PAPEL,
 	TIJERA,
-	LOGOUT, 
+	LOGOUT,
+	CONTINUE,
+	DISCONECTED, 
 	SHUTDOWN;
 }

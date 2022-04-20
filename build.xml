@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project name="miBuild" default="Compilar" basedir=".">
-	<description>Ejemplo de fichero build.xml</description>
+<project name="PiedraPapelTijera" default="compile" basedir=".">
+	<description>Build file del proyecto</description>
 
 	<!-- Propiedades del proyecto... -->
 
@@ -12,17 +12,17 @@
 	<property name="lib.dir" value="${basedir}/lib" />
 
 	<!-- =============== Development Targets ================================= -->
-	<target name="Todas" description="Todas las tareas." depends="Borrar, Crear, Compilar, Distribuir, GenerarDoc" />
+	<target name="all" description="Todas las tareas." depends="delete, create, compile, distribute, doc" />
 
 	<!-- ==================== Target Crear================================= -->
-	<target name="Crear" description="Prepara todos los directorios">
+	<target name="create" description="Prepara todos los directorios">
 		<mkdir dir="${build.dir}" />
 		<mkdir dir="${dist.dir}" />
 		<mkdir dir="${doc.dir}" />
 	</target>
 
 	<!-- ==================== Target Borrar ==================================== -->
-	<target name="Borrar" description="Elimina todos los directorios.">
+	<target name="delete" description="Elimina todos los directorios.">
 		<delete dir="${build.dir}" />
 		<delete dir="${dist.dir}" />
 		<delete dir="${doc.dir}" />
@@ -30,19 +30,20 @@
 
 
 	<!-- ==================== Target Compilar ==================================== -->
-	<target name="Compilar" depends="Crear" description="Compila la solucion completa.">
+	<target name="compile" depends="create" description="Compila la solucion completa.">
 		<javac encoding="UTF-8" srcdir="${src.dir}" destdir="${build.dir}" source="1.8" target="1.8" includeantruntime="false" />
 	</target>
 
 
 	<!-- ==================== Target Distribuir ==================================== -->
-	<target name="Distribuir" depends="Compilar" description="Empaqueta la aplicacion un .jar.">
-		<jar destfile="${dist.dir}/miEmpaquetado-1.0.jar" basedir="${build.dir}" />
+	<target name="distribute" depends="compile" description="Empaqueta la aplicacion un .jar.">
+		<jar destfile="${dist.dir}/Client_v1.1.jar" basedir="${build.dir}/es/ubu/lsi/client/" />
+		<jar destfile="${dist.dir}/Server_v1.1.jar" basedir="${build.dir}/es/ubu/lsi/server/" />
 	</target>
 
 	<!-- ==================== Target Javadoc ==================================== -->
-	<target name="GenerarDoc" depends="Compilar" description="Genera el javadoc">
-		<javadoc packagenames="prueba" sourcepath="${src.dir}" destdir="doc" version="true" windowtitle="MiPrueba ant">
+	<target name="doc" depends="compile" description="Genera el javadoc">
+		<javadoc packagenames="*" sourcepath="${src.dir}" destdir="doc" version="true" windowtitle="MiPrueba ant">
 
 		</javadoc>
 		<echo message="java doc has been generated!" />

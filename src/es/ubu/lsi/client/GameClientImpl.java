@@ -2,7 +2,7 @@
  * @author Daniel Alonso Báscones (dnllns)
  * @version PiedraPapelTijera-ubu-sdis-1
  * 2022-03-14 16:58:35 +0100
- * 
+ *
  */
 
 package es.ubu.lsi.client;
@@ -34,24 +34,25 @@ public class GameClientImpl implements GameClient {
 		this.id = id;
 		this.clientListener = new GameClientListener();
 
-	
+
 	}
 
 	public static void main(String[] args) {
 
 
 
-
 		System.out.println("Inicializando cliente...");
 		System.out.println("------------------------");
 
-		Util.printFormated("Introduce tu nombre de usuario: ", "?");
+		//Util.printFormated("Introduce tu nombre de usuario: ", "?");
 
 		//For test
-		String randomUsername = "pepito_" + (int)(Math.random()*1000);
+		//String randomUsername = "pepito_" + (int)(Math.random()*1000);
+
+
 		int randomId = (int)(Math.random()*1000);
 
-		GameClientImpl client1 = new GameClientImpl("localhost", 1500, randomUsername, randomId);
+		GameClientImpl client1 = new GameClientImpl(args[0], 1500, args[1], randomId);
 
 		client1.start();
 
@@ -65,7 +66,7 @@ public class GameClientImpl implements GameClient {
 	public boolean start() {
 
 		//Enviamos al servidor nuestro nombre de usuario
-		
+
 		//out.println(username);
 		Util.printFormated("Enviando el username al servidor", "i");
 		Util.sendTo(clientListener.out, username);
@@ -74,7 +75,7 @@ public class GameClientImpl implements GameClient {
 	}
 
 	/**
-	 * 
+	 *
 	 */
 	@Override
 	public void sendElement(GameElement element) {
@@ -116,25 +117,25 @@ public class GameClientImpl implements GameClient {
 		}
 		else if (option.equalsIgnoreCase("papel")){
 			g = new GameElement(this.id, ElementType.PAPEL);
-		} 
+		}
 		else if (option.equalsIgnoreCase("tijera")){
 			g = new GameElement(this.id, ElementType.TIJERA);
 		}
 		else {
 			g = new GameElement(this.id, ElementType.LOGOUT);
 		}
-	
+
 		return g;
-		
+
 	}
 
 
 	class GameClientListener implements Runnable {
 
 		private Socket s;
-		private PrintWriter out; 
+		private PrintWriter out;
 		private BufferedReader in;
-		// private BufferedReader stdIn; 
+		// private BufferedReader stdIn;
 		private Thread t;
 
 		public GameClientListener(){
@@ -158,49 +159,116 @@ public class GameClientImpl implements GameClient {
 			else {
 				GameElement ge = (GameElement) Util.deserialize(data);
 				GameResult gr = ge.getResult();
-				
+
 				return  gr;
+			}
+		}
+
+		public ElementType readOption() throws IOException{
+			String data = in.readLine();
+			if (data == null)
+				return null;
+			else {
+				GameElement ge = (GameElement) Util.deserialize(data);
+				return ge.getOption();
 			}
 		}
 
 
 		@Override
 		public void run() {
-			
 
+
+			int numRonda = 0;
 			while (true){
 
-				//Esperamos a que empiece la partida
-				
+				//Esperamos a que el servidor indique el
+				//comienzo de la partida
 				try {
-					
+
+					//Mientras el servidor no nos responda con Waiting
+					//El cliente se bloquea
 					GameResult r = readGameResult();
-					
 					while (!r.equals(GameResult.WAITING) ){
 
 						Util.printFormated("Esperando a que comience la partida", "i");
 						Thread.sleep(5000);
 
 					}
+
+					Util.printFormated("Comienza la partida", "i");
+
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
-				
-				Util.printFormated("Comienza la partida", "!");
+
+				Util.printFormated("Ronda " + ++numRonda, "i");
 
 
+				//Seleccion de jugada
 				GameElement opt = selectOption();
-				Util.sendTo(out, opt);
-				
-				ElementType o = opt.getOption();
 
+				//Envio de jugada al servidor
+				Util.sendTo(out, opt);
+
+				//Se comprueba que el cliente haya decidido finalizar la ejecucion
+				ElementType o = opt.getOption();
 				if (o.equals(ElementType.LOGOUT))
 					break;
 
+				Util.printFormated("Esperando al oponente...", "i");
 
+
+				//Comprobar ok del servidor para jugar
+				ElementType serverOk = null;
+				try {
+					while (serverOk == null){
+						serverOk = readOption();
+					}
+				} catch (IOException e1) {
+					e1.printStackTrace();
+				}
+
+				//Recibir y Mostrar mensaje con la jugada del oponente 
+				String message = (String) Util.readFrom(this.in);
+				Util.printFormated(message, "i");
+				
+
+				
+				if (serverOk.equals(ElementType.CONTINUE)){
+
+
+					//Esperar respuesta del servidor
+					GameResult r = null;
+					try {
+
+						//Mientras el servidor no nos responda con un resultado
+						//El cliente se bloquea
+						r = readGameResult();
+						while (r == null){
+							Thread.sleep(5000);
+						}
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+
+
+
+					if (r.equals(GameResult.WIN))
+						Util.printFormated("Has ganado la partida", "*");
+					else if (r.equals(GameResult.LOSE))
+						Util.printFormated("Has perdido la partida", "*");
+					else
+						Util.printFormated("Has empatado", "*");
+				}
+				else {
+					Util.printFormated("Se procede a reiniciar la partida por la desconexion del contrincante", "+");
+				}
 
 			}
-	
+
+			Util.printFormated("Fin de la ejecucion del cliente", "i");
+
 		}
 
 	}
